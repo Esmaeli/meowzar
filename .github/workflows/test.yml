@@ -11,7 +11,7 @@ jobs:
     timeout-minutes: 55
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Install dependencies
         run: |
@@ -29,7 +29,7 @@ jobs:
         run: python test.py
 
       - name: Upload result
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: result
           path: result.txt
