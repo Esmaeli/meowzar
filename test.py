@@ -14,8 +14,7 @@ SOCKS_PORT = 10808
 TEST_IPS = [
     "109.122.245.39",
     "185.24.253.139",
-    "185.105.238.209",
-    "178.239.146.199"
+    "185.105.238.209"
 ]
 
 def fetch_subscriptions():
@@ -25,7 +24,7 @@ def fetch_subscriptions():
 
     for url in urls:
         try:
-            r = requests.get(url, timeout=10)
+            r = requests.get(url, timeout=15)
             lines = r.text.splitlines()
             for line in lines:
                 if line.startswith("vless://"):
@@ -35,7 +34,7 @@ def fetch_subscriptions():
 
     return configs[:MAX_CONFIGS]
 
-def build_config(vless_link):
+def build_config():
     return {
         "log": {"loglevel": "none"},
         "inbounds": [{
@@ -45,19 +44,17 @@ def build_config(vless_link):
             "settings": {"udp": False}
         }],
         "outbounds": [{
-            "protocol": "vless",
-            "settings": {
-                "vnext": []
-            }
+            "protocol": "freedom",
+            "settings": {}
         }]
     }
 
-def run_xray(config_json):
+def run_xray():
     with open("temp.json", "w") as f:
-        json.dump(config_json, f)
+        json.dump(build_config(), f)
 
     process = subprocess.Popen(
-        ["./xray", "-config", "temp.json"],
+        ["./xray-bin/xray", "-config", "temp.json"],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL
     )
@@ -73,7 +70,7 @@ def test_proxy():
 
     success = 0
 
-    for ip in TEST_IPS[:3]:
+    for ip in TEST_IPS:
         try:
             requests.get(f"http://{ip}", proxies=proxies, timeout=TIMEOUT)
             success += 1
@@ -84,25 +81,23 @@ def test_proxy():
 
 def test_config(vless_link):
     try:
-        config = build_config(vless_link)
-        process = run_xray(config)
-
+        process = run_xray()
         ok = test_proxy()
-
-        process.send_signal(signal.SIGTERM)
-        process.kill()
+        process.terminate()
+        process.wait(timeout=2)
 
         if ok:
             return vless_link
     except:
         pass
+
     return None
 
 def main():
     configs = fetch_subscriptions()
     results = []
 
-    with ThreadPoolExecutor(max_workers=10) as executor:
+    with ThreadPoolExecutor(max_workers=8) as executor:
         futures = [executor.submit(test_config, c) for c in configs]
 
         for future in as_completed(futures):
